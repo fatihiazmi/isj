@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Misi 3: Tracing Hero</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body x-data="tracing" x-init="init()">
+
+  <a href="/index.html" class="btn-back">← Kembali</a>
+
+  <div class="activity-box">
+    <h1>Misi 3: Tracing Hero ✏️</h1>
+
+    <template x-if="!letter">
+      <p class="subtitle">Sila selesaikan Misi 1 & 2 dahulu!</p>
+    </template>
+
+    <template x-if="letter">
+      <div>
+        <p class="subtitle">Ikut garisan huruf: <strong x-text="letter.name"></strong></p>
+
+        <div id="canvasWrapper" style="position: relative; display: inline-block;">
+          <canvas id="guideCanvas"
+                  style="position: absolute; top: 0; left: 0; z-index: 0; border-radius: 15px;"></canvas>
+          <canvas id="traceCanvas" class="trace-canvas"
+                  style="position: relative; z-index: 1; background: transparent;"></canvas>
+        </div>
+
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center;">
+          <button class="btn-danger" @click="clearCanvas()">🗑️ Padam</button>
+          <button class="btn-primary" @click="complete()">✅ Siap!</button>
+        </div>
+
+        <p x-show="feedback" :class="'feedback-success'" x-text="feedbackText" style="margin-top: 15px;"></p>
+        <button class="btn-primary" @click="next()" x-show="feedback" style="margin-top: 10px;">
+          Seterusnya ➡️
+        </button>
+      </div>
+    </template>
+  </div>
+
+  <script type="module">
+    import Alpine from 'alpinejs'
+    import { getActiveStudent } from '/js/student.js'
+    import { markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable } from '/js/progress.js'
+    import { getLetterByIndex } from '/js/hijaiyah.js'
+
+    Alpine.data('tracing', () => ({
+      student: null,
+      letter: null,
+      currentLevel: 1,
+      feedback: null,
+      feedbackText: '',
+      canvas: null,
+      ctx: null,
+      drawing: false,
+
+      async init() {
+        this.student = getActiveStudent()
+        if (!this.student) { window.location.href = '/index.html'; return }
+        this.currentLevel = await getCurrentLevel(this.student.id)
+        const available = await isMissionAvailable(this.student.id, 3, this.currentLevel)
+        if (!available) { this.letter = null; return }
+        this.letter = getLetterByIndex(this.currentLevel)
+        this.$nextTick(() => this.setupCanvas())
+      },
+
+      setupCanvas() {
+        // Responsive canvas size
+        const size = window.innerWidth <= 768 ? 280 : window.innerWidth <= 1024 ? 350 : 300
+        const fontSize = Math.round(size * 0.67)
+
+        // Draw dotted letter guide on background canvas
+        const guide = document.getElementById('guideCanvas')
+        if (guide) {
+          guide.width = size
+          guide.height = size
+          const gCtx = guide.getContext('2d')
+          gCtx.clearRect(0, 0, size, size)
+          gCtx.fillStyle = '#fafafa'
+          gCtx.fillRect(0, 0, size, size)
+          gCtx.font = `${fontSize}px serif`
+          gCtx.textAlign = 'center'
+          gCtx.textBaseline = 'middle'
+          gCtx.setLineDash([4, 6])
+          gCtx.strokeStyle = '#bdc3c7'
+          gCtx.lineWidth = 2
+          gCtx.strokeText(this.letter.letter, size / 2, size / 2 + 10)
+          gCtx.fillStyle = 'rgba(189, 195, 199, 0.15)'
+          gCtx.fillText(this.letter.letter, size / 2, size / 2 + 10)
+        }
+
+        // Setup drawing canvas (transparent overlay)
+        this.canvas = document.getElementById('traceCanvas')
+        if (!this.canvas) return
+        this.canvas.width = size
+        this.canvas.height = size
+        this.ctx = this.canvas.getContext('2d')
+        this.ctx.strokeStyle = '#2c3e50'
+        this.ctx.lineWidth = 4
+        this.ctx.lineCap = 'round'
+
+        this.canvas.addEventListener('mousedown', (e) => this.startDraw(e))
+        this.canvas.addEventListener('mousemove', (e) => this.draw(e))
+        this.canvas.addEventListener('mouseup', () => this.stopDraw())
+        this.canvas.addEventListener('mouseleave', () => this.stopDraw())
+
+        this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.startDraw(e.touches[0]) })
+        this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); this.draw(e.touches[0]) })
+        this.canvas.addEventListener('touchend', () => this.stopDraw())
+      },
+
+      getPos(e) {
+        const rect = this.canvas.getBoundingClientRect()
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      },
+
+      startDraw(e) {
+        this.drawing = true
+        const pos = this.getPos(e)
+        this.ctx.beginPath()
+        this.ctx.moveTo(pos.x, pos.y)
+      },
+
+      draw(e) {
+        if (!this.drawing) return
+        const pos = this.getPos(e)
+        this.ctx.lineTo(pos.x, pos.y)
+        this.ctx.stroke()
+      },
+
+      stopDraw() {
+        this.drawing = false
+      },
+
+      clearCanvas() {
+        if (this.ctx) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+        this.feedback = null
+      },
+
+      async complete() {
+        await markLevelComplete(this.student.id, 3, this.currentLevel)
+        await logAttempt(this.student.id, 3, this.currentLevel, 'trace', 'correct')
+        this.feedback = true
+        this.feedbackText = 'Hebat! Huruf siap! 🎉'
+      },
+
+      async next() {
+        window.location.href = `/index.html?done=3&level=${this.currentLevel}`
+      }
+    }))
+
+    Alpine.start()
+  </script>
+</body>
+</html>

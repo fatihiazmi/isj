@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iqra' Smart Journey</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body x-data="missionMap" x-init="init()">
+
+  <!-- Student Picker (shown if no active student) -->
+  <template x-if="!activeStudent">
+    <div class="activity-box">
+      <h1>Iqra' Smart Journey</h1>
+      <p class="subtitle">Pilih Nama Anda:</p>
+      <div class="student-picker">
+        <template x-for="s in students" :key="s.id">
+          <div class="student-avatar" @click="selectStudent(s)">
+            <div class="emoji" x-text="s.avatar_emoji"></div>
+            <div class="name" x-text="s.name"></div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- Mission Map (shown after student selected) -->
+  <template x-if="activeStudent">
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+      <h1>Iqra' Smart Journey</h1>
+      <p class="subtitle">
+        Selamat datang, <span x-text="activeStudent.name"></span>!
+        Huruf semasa: <strong x-text="currentLetterName"></strong>
+      </p>
+
+      <div class="map-container">
+        <a href="/misi1.html" class="mission-card misi-1">
+          <div class="icon-pudar">📖</div>
+          <div class="mission-title">Misi 1: Explorer</div>
+          <p class="mission-desc">Belajar huruf hijaiyah dengan kawan-kawan.</p>
+          <div class="status-bar">
+            <div class="status-progress" :style="'width:' + missionProgress(1) + '%'"></div>
+          </div>
+        </a>
+
+        <a href="/sebutan.html" class="mission-card misi-2">
+          <div class="icon-pudar">🎤</div>
+          <div class="mission-title">Misi 2: Makhraj Master</div>
+          <p class="mission-desc">Sebut huruf dengan betul guna Suara Ajaib.</p>
+          <div class="status-bar">
+            <div class="status-progress" :style="'width:' + missionProgress(2) + '%'"></div>
+          </div>
+        </a>
+
+        <a href="/tracing.html" class="mission-card misi-3">
+          <div class="icon-pudar">✏️</div>
+          <div class="mission-title">Misi 3: Tracing Hero</div>
+          <p class="mission-desc">Ikut garisan huruf dan warnakan.</p>
+          <div class="status-bar">
+            <div class="status-progress" :style="'width:' + missionProgress(3) + '%'"></div>
+          </div>
+        </a>
+
+        <div class="mission-card misi-4" style="opacity: 0.5; cursor: not-allowed;">
+          <div class="icon-pudar">🔒</div>
+          <div class="mission-title">Bonus: Hafazan</div>
+          <p class="mission-desc">Kumpul surah pendek (Akan Datang).</p>
+          <div class="status-bar">
+            <div class="status-progress" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="energy-dashboard">
+        <span class="energy-icon">⚡</span>
+        <span class="energy-text">Energy Points: <span x-text="energy"></span></span>
+      </div>
+
+      <div style="margin-top: 15px; display: flex; gap: 20px; align-items: center;">
+        <a href="#" @click.prevent="logout()" class="btn-back">Tukar Pelajar</a>
+        <button class="btn-reset" @click="resetProgress()">Reset Kemajuan</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Celebration Modal -->
+  <template x-if="celebration">
+    <div class="celebration-overlay" @click.self="dismissCelebration()">
+      <div class="celebration-box">
+        <div class="celebration-emoji" x-text="celebration.emoji"></div>
+        <div class="celebration-title" x-text="celebration.title"></div>
+        <p class="celebration-text" x-html="celebration.text"></p>
+        <button class="celebration-btn" :class="celebration.btnClass" @click="celebration.action()">
+          <span x-text="celebration.btnText"></span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <a href="/dashboard.html" class="btn-admin">Dashboard Guru 📊</a>
+
+  <script type="module">
+    import Alpine from 'alpinejs'
+    import { fetchAllStudents, getActiveStudent, setActiveStudent, clearActiveStudent } from '/js/student.js'
+    import { getStudentProgress, getCurrentLevel, calculateEnergy, resetStudentProgress, getCompletedMissionForLevel } from '/js/progress.js'
+    import { getLetterByIndex } from '/js/hijaiyah.js'
+
+    Alpine.data('missionMap', () => ({
+      students: [],
+      activeStudent: null,
+      progress: [],
+      currentLevel: 1,
+      energy: 0,
+      celebration: null,
+
+      get currentLetterName() {
+        const letter = getLetterByIndex(this.currentLevel)
+        return letter ? `${letter.letter} (${letter.name})` : 'Semua selesai!'
+      },
+
+      async init() {
+        this.activeStudent = getActiveStudent()
+        this.students = await fetchAllStudents()
+        if (this.activeStudent) {
+          await this.loadProgress()
+          this.checkCelebration()
+        }
+      },
+
+      async selectStudent(student) {
+        setActiveStudent(student)
+        this.activeStudent = student
+        await this.loadProgress()
+      },
+
+      async loadProgress() {
+        this.progress = await getStudentProgress(this.activeStudent.id)
+        this.currentLevel = await getCurrentLevel(this.activeStudent.id)
+        this.energy = calculateEnergy(this.progress)
+      },
+
+      missionProgress(mission) {
+        const completed = this.progress.filter(p => p.mission === mission).length
+        return Math.round((completed / 28) * 100)
+      },
+
+      async checkCelebration() {
+        const params = new URLSearchParams(window.location.search)
+        const fromMisi = params.get('done')
+        const fromLevel = parseInt(params.get('level'))
+        if (!fromMisi || !fromLevel) return
+
+        // Clean URL
+        window.history.replaceState({}, '', '/index.html')
+
+        const letter = getLetterByIndex(fromLevel)
+        const nextLetter = getLetterByIndex(fromLevel + 1)
+        const completedMission = await getCompletedMissionForLevel(this.activeStudent.id, fromLevel)
+
+        if (completedMission === 'all') {
+          // All 3 missions done for this letter!
+          this.celebration = {
+            emoji: '🏆',
+            title: 'Tahniah!',
+            text: `Anda berjaya mempelajari huruf <strong>${letter.letter} (${letter.name})</strong>!<br>Seterusnya huruf <strong>${nextLetter ? nextLetter.letter + ' (' + nextLetter.name + ')' : 'Semua selesai!'}</strong>`,
+            btnText: nextLetter ? `Jom belajar ${nextLetter.name}! ➡️` : 'Semua selesai! 🎉',
+            btnClass: 'letter-complete',
+            action: () => { this.celebration = null }
+          }
+        } else if (fromMisi === '1') {
+          this.celebration = {
+            emoji: '⭐',
+            title: 'Syabas!',
+            text: `Misi 1 selesai untuk huruf <strong>${letter.letter} (${letter.name})</strong>!<br>Seterusnya <strong>Misi 2: Makhraj Master</strong>`,
+            btnText: 'Misi 2: Sebut! 🎤',
+            btnClass: '',
+            action: () => { this.celebration = null; window.location.href = '/sebutan.html' }
+          }
+        } else if (fromMisi === '2') {
+          this.celebration = {
+            emoji: '🌟',
+            title: 'Syabas!',
+            text: `Misi 2 selesai untuk huruf <strong>${letter.letter} (${letter.name})</strong>!<br>Seterusnya <strong>Misi 3: Tracing Hero</strong>`,
+            btnText: 'Misi 3: Tulis! ✏️',
+            btnClass: '',
+            action: () => { this.celebration = null; window.location.href = '/tracing.html' }
+          }
+        }
+      },
+
+      dismissCelebration() {
+        this.celebration = null
+      },
+
+      async resetProgress() {
+        if (!window.confirm('Reset semua kemajuan untuk ' + this.activeStudent.name + '?')) return
+        try {
+          await resetStudentProgress(this.activeStudent.id)
+          await this.loadProgress()
+          this.celebration = null
+          window.alert('Kemajuan telah direset!')
+        } catch (err) {
+          console.error('Reset failed:', err)
+          window.alert('Gagal reset: ' + err.message)
+        }
+      },
+
+      logout() {
+        clearActiveStudent()
+        this.activeStudent = null
+        this.progress = []
+        this.energy = 0
+        this.celebration = null
+      }
+    }))
+
+    Alpine.start()
+  </script>
+</body>
+</html>

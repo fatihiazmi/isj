@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Guru</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="dashboard-body" x-data="dashboard" x-init="init()">
+
+  <div class="container">
+    <a href="/index.html" class="btn-back">← Kembali</a>
+    <h1 style="color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">
+      Dashboard Guru
+    </h1>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Jumlah Murid</h3>
+        <p x-text="students.length"></p>
+      </div>
+      <div class="stat-card">
+        <h3>Sedang Belajar</h3>
+        <p x-text="ongoingCount"></p>
+      </div>
+      <div class="stat-card">
+        <h3>Murid Lulus</h3>
+        <p x-text="completedCount"></p>
+      </div>
+    </div>
+
+    <h2 style="color: #2c3e50;">Prestasi Murid</h2>
+    <div class="table-container">
+      <table>
+        <tr>
+          <th>Nama Murid</th>
+          <th>Huruf Semasa</th>
+          <th>Kemajuan</th>
+          <th>Status</th>
+        </tr>
+        <template x-for="s in studentStats" :key="s.id">
+          <tr>
+            <td x-text="s.avatar + ' ' + s.name"></td>
+            <td x-text="s.currentLetterName"></td>
+            <td x-text="s.progressPercent + '%'"></td>
+            <td>
+              <span class="badge" :class="s.badgeClass" x-text="s.status"></span>
+            </td>
+          </tr>
+        </template>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import Alpine from 'alpinejs'
+    import { supabase } from '/js/supabase.js'
+    import { getLetterByIndex } from '/js/hijaiyah.js'
+
+    Alpine.data('dashboard', () => ({
+      students: [],
+      studentStats: [],
+
+      get ongoingCount() {
+        return this.studentStats.filter(s => s.status === 'Sedang Belajar').length
+      },
+
+      get completedCount() {
+        return this.studentStats.filter(s => s.status === 'Lulus').length
+      },
+
+      async init() {
+        const { data: students } = await supabase.from('students').select('*').order('name')
+        this.students = students || []
+
+        const { data: progress } = await supabase.from('progress').select('*').eq('completed', true)
+
+        this.studentStats = this.students.map(s => {
+          const sp = (progress || []).filter(p => p.student_id === s.id)
+          const completedLevels = new Set()
+
+          for (let level = 1; level <= 28; level++) {
+            const m1 = sp.find(p => p.mission === 1 && p.level === level)
+            const m2 = sp.find(p => p.mission === 2 && p.level === level)
+            const m3 = sp.find(p => p.mission === 3 && p.level === level)
+            if (m1 && m2 && m3) completedLevels.add(level)
+          }
+
+          const totalCompleted = completedLevels.size
+          const progressPercent = Math.round((totalCompleted / 28) * 100)
+
+          let currentLevel = 29
+          for (let level = 1; level <= 28; level++) {
+            if (!completedLevels.has(level)) { currentLevel = level; break }
+          }
+
+          const currentLetter = getLetterByIndex(currentLevel)
+          const currentLetterName = currentLetter ? `${currentLetter.letter} (${currentLetter.name})` : 'Semua selesai'
+
+          let status, badgeClass
+          if (totalCompleted === 28) {
+            status = 'Lulus'; badgeClass = 'lulus'
+          } else if (totalCompleted === 0) {
+            status = 'Belum Mula'; badgeClass = 'lemah'
+          } else {
+            status = 'Sedang Belajar'; badgeClass = 'sedang-belajar'
+          }
+
+          return {
+            id: s.id,
+            name: s.name,
+            avatar: s.avatar_emoji,
+            currentLetterName,
+            progressPercent,
+            status,
+            badgeClass,
+          }
+        })
+      }
+    }))
+
+    Alpine.start()
+  </script>
+</body>
+</html>
