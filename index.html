@@ -97,6 +97,22 @@
     </div>
   </template>
 
+  <!-- Reset Confirmation Modal -->
+  <template x-if="resetModal">
+    <div class="celebration-overlay" @click.self="resetModal = null">
+      <div class="celebration-box">
+        <div class="celebration-emoji" x-text="resetModal.emoji"></div>
+        <div class="celebration-title" x-text="resetModal.title"></div>
+        <p class="celebration-text" x-html="resetModal.text"></p>
+        <div x-show="resetModal.showActions" style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-danger" style="padding: 14px 28px; font-size: 1.1rem; border-radius: 50px;" @click="confirmReset()">Ya, Reset</button>
+          <button class="btn-secondary" style="padding: 14px 28px; font-size: 1.1rem; border-radius: 50px;" @click="resetModal = null">Batal</button>
+        </div>
+        <button x-show="!resetModal.showActions" class="celebration-btn" @click="resetModal = null">OK</button>
+      </div>
+    </div>
+  </template>
+
   <a href="/dashboard.html" class="btn-admin">Dashboard Guru 📊</a>
 
   <script type="module">
@@ -112,6 +128,7 @@
       currentLevel: 1,
       energy: 0,
       celebration: null,
+      resetModal: null,
 
       get currentLetterName() {
         const letter = getLetterByIndex(this.currentLevel)
@@ -192,16 +209,33 @@
         this.celebration = null
       },
 
-      async resetProgress() {
-        if (!window.confirm('Reset semua kemajuan untuk ' + this.activeStudent.name + '?')) return
+      resetProgress() {
+        this.resetModal = {
+          emoji: '🔄',
+          title: 'Reset Kemajuan?',
+          text: `Semua kemajuan untuk <strong>${this.activeStudent.name}</strong> akan dipadam. Tindakan ini tidak boleh dibatalkan.`,
+          showActions: true,
+        }
+      },
+
+      async confirmReset() {
         try {
           await resetStudentProgress(this.activeStudent.id)
           await this.loadProgress()
           this.celebration = null
-          window.alert('Kemajuan telah direset!')
+          this.resetModal = {
+            emoji: '✅',
+            title: 'Berjaya!',
+            text: `Kemajuan <strong>${this.activeStudent.name}</strong> telah direset.`,
+            showActions: false,
+          }
         } catch (err) {
-          console.error('Reset failed:', err)
-          window.alert('Gagal reset: ' + err.message)
+          this.resetModal = {
+            emoji: '❌',
+            title: 'Gagal',
+            text: 'Tidak dapat reset kemajuan. Sila cuba lagi.',
+            showActions: false,
+          }
         }
       },
 
