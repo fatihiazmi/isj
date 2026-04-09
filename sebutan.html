@@ -13,82 +13,69 @@
   <div class="activity-box">
     <h1>Misi 2: Makhraj Master 🎤</h1>
 
-    <template x-if="!letterData">
+    <div x-show="!letterData">
       <p class="subtitle">Sila selesaikan Misi 1 dahulu!</p>
-    </template>
+    </div>
 
-    <template x-if="letterData">
-      <div>
-        <p class="subtitle" x-text="letterData.isBare ? 'Sebut nama huruf ini:' : 'Sebut huruf dengan baris:'"></p>
-        <div class="huruf-display" x-text="letterData.display"></div>
-        <p style="font-size: 1.2rem; color: #7f8c8d;">
-          <template x-if="letterData.isBare">
-            <span>Sebut: "<span x-text="letterData.pronunciation"></span>"</span>
-          </template>
-          <template x-if="!letterData.isBare">
-            <span><span x-text="letterData.barisName"></span> — sebut: "<span x-text="letterData.pronunciation"></span>"</span>
-          </template>
-        </p>
-        <p style="font-size: 0.9rem; color: #7f8c8d;">
-          <span x-text="currentBaris + 1"></span> / 4
-        </p>
+    <div x-show="letterData">
+      <p class="subtitle" x-text="letterData && letterData.isBare ? 'Sebut nama huruf ini:' : 'Sebut huruf dengan baris:'"></p>
+      <div class="huruf-display" x-text="letterData && letterData.display"></div>
+      <p style="font-size: 1.2rem; color: #7f8c8d;">
+        <span x-show="letterData && letterData.isBare">Sebut: "<span x-text="letterData && letterData.pronunciation"></span>"</span>
+        <span x-show="letterData && !letterData.isBare"><span x-text="letterData && letterData.barisName"></span> — sebut: "<span x-text="letterData && letterData.pronunciation"></span>"</span>
+      </p>
+      <p style="font-size: 0.9rem; color: #7f8c8d;">
+        <span x-text="currentBaris + 1"></span> / 4
+      </p>
 
-        <!-- Listen to example — always available -->
-        <div style="margin-bottom: 15px;">
-          <button class="btn-listen" @click="listenLetter()" :disabled="playing">
-            <span x-text="playing ? '🔊 Sedang bermain...' : '🔊 Dengar Sebutan'"></span>
-          </button>
-        </div>
-
-        <!-- READY: Show record button -->
-        <template x-if="step === 'ready'">
-          <div>
-            <button class="btn-record" @click="record()">
-              🎤 Rakam Sebutan
-            </button>
-          </div>
-        </template>
-
-        <!-- RECORDING: Show stop button -->
-        <template x-if="step === 'recording'">
-          <div>
-            <p class="recording-pulse">🔴 Merakam... Sebut sekarang!</p>
-            <button class="btn-danger" @click="stop()" style="margin-top: 10px; padding: 14px 28px; font-size: 1.1rem;">
-              ⏹️ Berhenti
-            </button>
-          </div>
-        </template>
-
-        <!-- REVIEW: Playback + teacher buttons -->
-        <template x-if="step === 'review'">
-          <div>
-            <p style="color: #27ae60; font-weight: bold; font-size: 1.1rem;">Rakaman siap!</p>
-
-            <button class="btn-listen" @click="playRecording()" style="margin: 10px 0;">
-              🔊 Dengar Semula
-            </button>
-
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #bdc3c7;">
-              <p style="color: #34495e; font-size: 1rem; font-weight: bold;">Guru: Adakah sebutan betul?</p>
-              <div style="margin-top: 12px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn-secondary" style="padding: 14px 28px; font-size: 1.1rem;" @click="teacherMark('correct')">✅ Betul</button>
-                <button class="btn-danger" style="padding: 14px 28px; font-size: 1.1rem;" @click="teacherMark('incorrect')">❌ Cuba Lagi</button>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- CORRECT: Show success + next -->
-        <template x-if="step === 'correct'">
-          <div>
-            <p class="feedback-success">Guru sahkan: Betul! 🎉</p>
-            <button class="btn-primary" @click="next()" style="margin-top: 15px;">
-              Seterusnya ➡️
-            </button>
-          </div>
-        </template>
+      <div style="margin-bottom: 15px;">
+        <button class="btn-listen" @click="listenLetter()" :disabled="playing"
+                x-text="playing ? '🔊 Sedang bermain...' : '🔊 Dengar Sebutan'">
+        </button>
       </div>
-    </template>
+
+      <!-- READY -->
+      <div x-show="step === 'ready'" style="margin-top: 10px;">
+        <button class="btn-record" @click="record()">
+          🎤 Rakam Sebutan
+        </button>
+      </div>
+
+      <!-- RECORDING -->
+      <div x-show="step === 'recording'" style="margin-top: 10px;">
+        <p class="recording-pulse">🔴 Merakam... Sebut sekarang!</p>
+        <button class="btn-danger" @click="stop()" style="margin-top: 10px; padding: 14px 28px; font-size: 1.1rem;">
+          ⏹️ Berhenti
+        </button>
+      </div>
+
+      <!-- REVIEW -->
+      <div x-show="step === 'review'" style="margin-top: 15px;">
+        <p style="color: #27ae60; font-weight: bold; font-size: 1.1rem;">Rakaman siap!</p>
+
+        <button class="btn-listen" @click="playRecording()" style="margin: 10px 0;">
+          🔊 Dengar Semula
+        </button>
+
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #bdc3c7;">
+          <p style="color: #34495e; font-size: 1rem; font-weight: bold;">Guru: Adakah sebutan betul?</p>
+          <button class="btn-secondary"
+                  style="display: block; width: 100%; max-width: 280px; margin: 12px auto 0; padding: 16px 28px; font-size: 1.2rem;"
+                  @click="teacherMark('correct')">✅ Betul</button>
+          <button class="btn-danger"
+                  style="display: block; width: 100%; max-width: 280px; margin: 12px auto 0; padding: 16px 28px; font-size: 1.2rem;"
+                  @click="teacherMark('incorrect')">❌ Cuba Lagi</button>
+        </div>
+      </div>
+
+      <!-- CORRECT -->
+      <div x-show="step === 'correct'" style="margin-top: 15px;">
+        <p class="feedback-success">Guru sahkan: Betul! 🎉</p>
+        <button class="btn-primary" @click="next()" style="margin-top: 15px;">
+          Seterusnya ➡️
+        </button>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -104,7 +91,7 @@
       letterData: null,
       currentLevel: 1,
       currentBaris: 0,
-      step: 'ready', // ready | recording | review | correct
+      step: 'ready',
       recordingUrl: null,
       playing: false,
       progress: [],
@@ -150,8 +137,7 @@
 
       playRecording() {
         if (this.recordingUrl) {
-          const audio = new Audio(this.recordingUrl)
-          audio.play()
+          new Audio(this.recordingUrl).play()
         }
       },
 
