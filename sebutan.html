@@ -33,46 +33,51 @@
           <span x-text="currentBaris + 1"></span> / 4
         </p>
 
+        <!-- Step 1: Listen to example -->
         <button class="btn-listen" @click="listenLetter()" :disabled="playing">
           <span x-show="!playing">🔊 Dengar Sebutan</span>
           <span x-show="playing">🔊 Sedang bermain...</span>
         </button>
 
-        <!-- Mic permission denied message -->
-        <div x-show="micDenied" style="margin: 15px 0;">
-          <p style="color: #e74c3c; font-weight: bold;">Mikrofon tidak dibenarkan.</p>
-          <p style="color: #7f8c8d; font-size: 0.85rem;">Sila benarkan akses mikrofon di tetapan pelayar, atau gunakan butang guru di bawah.</p>
-        </div>
-
-        <div x-show="!listening && !feedback && !micDenied">
-          <button class="btn-primary" @click="listen()" style="font-size: 1.3rem; padding: 18px 40px;">
-            🎤 Tekan & Sebut
+        <!-- Step 2: Record -->
+        <div x-show="!recording && !recordingUrl && !feedback" style="margin-top: 10px;">
+          <button class="btn-record" @click="record()">
+            🎤 Rakam Sebutan
           </button>
         </div>
 
-        <div x-show="listening" style="margin: 20px 0;">
-          <p class="subtitle">🔴 Mendengar... Sebut sekarang!</p>
+        <!-- Recording in progress -->
+        <div x-show="recording" style="margin-top: 10px;">
+          <p class="recording-pulse">🔴 Merakam... Sebut sekarang!</p>
+          <button class="btn-danger" @click="stop()" style="margin-top: 10px;">
+            ⏹️ Berhenti
+          </button>
         </div>
 
+        <!-- Step 3: Playback + teacher review -->
+        <div x-show="recordingUrl && !feedback" style="margin-top: 15px;">
+          <p style="color: #27ae60; font-weight: bold; font-size: 1.1rem;">Rakaman siap!</p>
+
+          <button class="btn-listen" @click="playRecording()" style="margin-top: 10px;">
+            🔊 Dengar Semula
+          </button>
+
+          <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #bdc3c7;">
+            <p style="color: #7f8c8d; font-size: 0.95rem;">Guru: Adakah sebutan betul?</p>
+            <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn-secondary" @click="teacherMark('correct')">✅ Betul</button>
+              <button class="btn-danger" @click="teacherMark('incorrect')">❌ Cuba Lagi</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback -->
         <div x-show="feedback">
           <p :class="feedback === 'correct' ? 'feedback-success' : 'feedback-error'" x-text="feedbackText"></p>
-
-          <div x-show="feedback === 'incorrect'" style="margin-top: 20px;">
-            <p style="color: #7f8c8d; font-size: 0.9rem;">Guru: Adakah sebutan betul?</p>
-            <button class="btn-secondary" @click="teacherMark('correct')" style="margin: 5px;">✅ Betul</button>
-            <button class="btn-danger" @click="teacherMark('incorrect')" style="margin: 5px;">❌ Cuba Lagi</button>
-          </div>
 
           <button class="btn-primary" @click="next()" x-show="feedback === 'correct'" style="margin-top: 15px;">
             Seterusnya ➡️
           </button>
-        </div>
-
-        <!-- Always-visible teacher override for when mic fails -->
-        <div x-show="!feedback && (micDenied || micUnsupported)" style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #bdc3c7;">
-          <p style="color: #7f8c8d; font-size: 0.9rem;">Penilaian Guru:</p>
-          <button class="btn-secondary" @click="teacherMark('correct')" style="margin: 5px;">✅ Betul</button>
-          <button class="btn-danger" @click="teacherMark('incorrect')" style="margin: 5px;">❌ Cuba Lagi</button>
         </div>
       </div>
     </template>
@@ -83,31 +88,24 @@
     import { getActiveStudent } from '/js/student.js'
     import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable, getNextBaris } from '/js/progress.js'
     import { getLetterWithBaris } from '/js/hijaiyah.js'
-    import { startListening, checkPronunciation } from '/js/speech.js'
     import { speakLetter } from '/js/audio.js'
+    import { startRecording, stopRecording } from '/js/recorder.js'
 
     Alpine.data('sebutan', () => ({
       student: null,
       letterData: null,
       currentLevel: 1,
       currentBaris: 0,
-      listening: false,
+      recording: false,
+      recordingUrl: null,
       feedback: null,
       feedbackText: '',
-      micDenied: false,
-      micUnsupported: false,
       playing: false,
       progress: [],
 
       async init() {
         this.student = getActiveStudent()
         if (!this.student) { window.location.href = '/index.html'; return }
-
-        // Check Speech API support
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-        if (!SpeechRecognition) {
-          this.micUnsupported = true
-        }
 
         this.progress = await getStudentProgress(this.student.id)
         const pos = await getCurrentLevel(this.student.id)
@@ -128,47 +126,50 @@
         this.playing = false
       },
 
-      async listen() {
-        this.listening = true
-        this.feedback = null
+      async record() {
         try {
-          const results = await startListening('ar-SA')
-          const correct = checkPronunciation(results, this.letterData)
-          if (correct) {
-            this.feedback = 'correct'
-            this.feedbackText = 'HEBAT! Betul! 🎉'
-            await markLevelComplete(this.student.id, 2, this.currentLevel, this.currentBaris)
-            await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'correct')
-          } else {
-            this.feedback = 'incorrect'
-            this.feedbackText = 'Cuba lagi... Atau minta guru semak.'
-            await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'incorrect')
-          }
+          await startRecording()
+          this.recording = true
+          this.recordingUrl = null
+          this.feedback = null
         } catch (err) {
-          // Only 'not-allowed' reaches here — everything else resolves as empty
-          this.micDenied = true
+          alert('Sila benarkan akses mikrofon di tetapan pelayar.')
         }
-        this.listening = false
+      },
+
+      async stop() {
+        const url = await stopRecording()
+        this.recording = false
+        this.recordingUrl = url
+      },
+
+      playRecording() {
+        if (this.recordingUrl) {
+          const audio = new Audio(this.recordingUrl)
+          audio.play()
+        }
       },
 
       async teacherMark(result) {
-        await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'manual', result)
+        await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'recording', result)
         if (result === 'correct') {
           await markLevelComplete(this.student.id, 2, this.currentLevel, this.currentBaris)
           this.feedback = 'correct'
           this.feedbackText = 'Guru sahkan: Betul! 🎉'
         } else {
+          // Reset for another try
+          this.recordingUrl = null
           this.feedback = null
         }
       },
 
       async next() {
-        // Refresh progress and check for more baris
         this.progress = await getStudentProgress(this.student.id)
         const nextBaris = getNextBaris(this.progress, 2, this.currentLevel)
-        if (nextBaris) {
+        if (nextBaris !== null) {
           this.currentBaris = nextBaris
           this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
+          this.recordingUrl = null
           this.feedback = null
           this.feedbackText = ''
         } else {
