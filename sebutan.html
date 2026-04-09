@@ -83,7 +83,7 @@
     import { getActiveStudent } from '/js/student.js'
     import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable, getNextBaris } from '/js/progress.js'
     import { getLetterWithBaris } from '/js/hijaiyah.js'
-    import { startListening, checkPronunciation, requestMicPermission } from '/js/speech.js'
+    import { startListening, checkPronunciation } from '/js/speech.js'
     import { speakLetter } from '/js/audio.js'
 
     Alpine.data('sebutan', () => ({
@@ -129,13 +129,6 @@
       },
 
       async listen() {
-        // Request mic permission first
-        const hasPermission = await requestMicPermission()
-        if (!hasPermission) {
-          this.micDenied = true
-          return
-        }
-
         this.listening = true
         this.feedback = null
         try {
@@ -152,7 +145,7 @@
             await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'incorrect')
           }
         } catch (err) {
-          // Permission denied — show mic denied state
+          // Only 'not-allowed' reaches here — everything else resolves as empty
           this.micDenied = true
         }
         this.listening = false
