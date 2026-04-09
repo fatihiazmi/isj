@@ -162,7 +162,7 @@
 
       missionProgress(mission) {
         const completed = countMissionCompleted(this.progress, mission)
-        return Math.round((completed / 84) * 100) // 28 letters × 3 baris
+        return Math.round((completed / 112) * 100) // 28 letters × 4 sub-steps
       },
 
       async checkCelebration() {

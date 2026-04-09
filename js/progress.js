@@ -39,31 +39,31 @@ export async function logAttempt(studentId, mission, level, baris, type, result)
 export async function getCurrentLevel(studentId) {
   const progress = await getStudentProgress(studentId)
   for (let level = 1; level <= 28; level++) {
-    for (let baris = 1; baris <= 3; baris++) {
+    for (let baris = 0; baris <= 3; baris++) {
       const m1 = progress.find(p => p.mission === 1 && p.level === level && p.baris === baris)
       const m2 = progress.find(p => p.mission === 2 && p.level === level && p.baris === baris)
       const m3 = progress.find(p => p.mission === 3 && p.level === level && p.baris === baris)
       if (!m1 || !m2 || !m3) return { level, baris }
     }
   }
-  return { level: 29, baris: 1 } // All done
+  return { level: 29, baris: 0 } // All done
 }
 
-// Returns which baris (1-3) is next for a specific mission+level, or null if all done
+// Returns which baris (0-3) is next for a specific mission+level, or null if all done
 export function getNextBaris(progress, mission, level) {
-  for (let baris = 1; baris <= 3; baris++) {
+  for (let baris = 0; baris <= 3; baris++) {
     const done = progress.find(p => p.mission === mission && p.level === level && p.baris === baris && p.completed)
     if (!done) return baris
   }
-  return null // All 3 baris done for this mission+level
+  return null // All 4 sub-steps done for this mission+level
 }
 
-// Check if all 3 baris are complete for a mission+level
+// Check if all 4 sub-steps are complete for a mission+level
 export function isLetterCompleteForMission(progress, mission, level) {
   return getNextBaris(progress, mission, level) === null
 }
 
-// Check if mission is available for this level (previous missions must have all 3 baris done)
+// Check if mission is available for this level (previous missions must have all 4 sub-steps done)
 export async function isMissionAvailable(studentId, mission, level) {
   if (mission === 1) return true
   const progress = await getStudentProgress(studentId)
@@ -103,7 +103,7 @@ export async function getCompletedMissionForLevel(studentId, level) {
   return 0
 }
 
-// Count fully completed letters (all 3 missions × 3 baris)
+// Count fully completed letters (all 3 missions × 4 sub-steps)
 export function countCompletedLetters(progress) {
   let count = 0
   for (let level = 1; level <= 28; level++) {

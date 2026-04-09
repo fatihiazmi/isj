@@ -21,11 +21,13 @@
       <div>
         <p class="subtitle">
           Ikut garisan huruf: <strong x-text="letterData.name"></strong>
-          — <span x-text="letterData.barisName"></span>
+          <template x-if="!letterData.isBare">
+            <span> — <span x-text="letterData.barisName"></span></span>
+          </template>
           (<span x-text="letterData.pronunciation"></span>)
         </p>
         <p style="font-size: 0.9rem; color: #7f8c8d;">
-          Baris <span x-text="currentBaris"></span> / 3
+          <span x-text="currentBaris + 1"></span> / 4
         </p>
 
         <div id="canvasWrapper" style="position: relative; display: inline-block;">
@@ -58,7 +60,7 @@
       student: null,
       letterData: null,
       currentLevel: 1,
-      currentBaris: 1,
+      currentBaris: 0,
       feedback: null,
       feedbackText: '',
       canvas: null,
@@ -77,7 +79,8 @@
         const available = await isMissionAvailable(this.student.id, 3, this.currentLevel)
         if (!available) { this.letterData = null; return }
 
-        this.currentBaris = getNextBaris(this.progress, 3, this.currentLevel) || 1
+        const next = getNextBaris(this.progress, 3, this.currentLevel)
+        this.currentBaris = next !== null ? next : 0
         this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
         this.$nextTick(() => this.setupCanvas())
       },

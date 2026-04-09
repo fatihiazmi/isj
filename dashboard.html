@@ -82,7 +82,7 @@
           for (let level = 1; level <= 28; level++) {
             let allDone = true
             for (let mission = 1; mission <= 3; mission++) {
-              for (let baris = 1; baris <= 3; baris++) {
+              for (let baris = 0; baris <= 3; baris++) {
                 const found = sp.find(p => p.mission === mission && p.level === level && p.baris === baris)
                 if (!found) { allDone = false; break }
               }
@@ -95,10 +95,10 @@
           const progressPercent = Math.round((totalCompleted / 28) * 100)
 
           // Find current level + baris
-          let currentLevel = 29, currentBaris = 1
+          let currentLevel = 29, currentBaris = 0
           outer:
           for (let level = 1; level <= 28; level++) {
-            for (let baris = 1; baris <= 3; baris++) {
+            for (let baris = 0; baris <= 3; baris++) {
               for (let mission = 1; mission <= 3; mission++) {
                 const found = sp.find(p => p.mission === mission && p.level === level && p.baris === baris)
                 if (!found) { currentLevel = level; currentBaris = baris; break outer }

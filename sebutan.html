@@ -19,13 +19,18 @@
 
     <template x-if="letterData">
       <div>
-        <p class="subtitle">Sebut huruf di bawah:</p>
+        <p class="subtitle" x-text="letterData.isBare ? 'Sebut nama huruf ini:' : 'Sebut huruf dengan baris:'"></p>
         <div class="huruf-display" x-text="letterData.display"></div>
         <p style="font-size: 1.2rem; color: #7f8c8d;">
-          <span x-text="letterData.barisName"></span> — sebut: "<span x-text="letterData.pronunciation"></span>"
+          <template x-if="letterData.isBare">
+            <span>Sebut: "<span x-text="letterData.pronunciation"></span>"</span>
+          </template>
+          <template x-if="!letterData.isBare">
+            <span><span x-text="letterData.barisName"></span> — sebut: "<span x-text="letterData.pronunciation"></span>"</span>
+          </template>
         </p>
         <p style="font-size: 0.9rem; color: #7f8c8d;">
-          Baris <span x-text="currentBaris"></span> / 3
+          <span x-text="currentBaris + 1"></span> / 4
         </p>
 
         <!-- Mic permission denied message -->
@@ -79,7 +84,7 @@
       student: null,
       letterData: null,
       currentLevel: 1,
-      currentBaris: 1,
+      currentBaris: 0,
       listening: false,
       feedback: null,
       feedbackText: '',
@@ -105,7 +110,8 @@
         const available = await isMissionAvailable(this.student.id, 2, this.currentLevel)
         if (!available) { this.letterData = null; return }
 
-        this.currentBaris = getNextBaris(this.progress, 2, this.currentLevel) || 1
+        const next = getNextBaris(this.progress, 2, this.currentLevel)
+        this.currentBaris = next !== null ? next : 0
         this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
       },
 

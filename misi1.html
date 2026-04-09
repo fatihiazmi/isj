@@ -19,15 +19,17 @@
 
     <template x-if="letterData">
       <div>
-        <p class="subtitle">Kenali huruf ini:</p>
+        <p class="subtitle" x-text="letterData.isBare ? 'Kenali huruf ini:' : 'Kenali huruf dengan baris:'"></p>
         <div class="huruf-display" x-text="letterData.display"></div>
         <p style="font-size: 1.5rem;">
           <strong x-text="letterData.name"></strong>
-          — <span x-text="letterData.barisName"></span>
+          <template x-if="!letterData.isBare">
+            <span> — <span x-text="letterData.barisName"></span></span>
+          </template>
           (<span x-text="letterData.pronunciation"></span>)
         </p>
         <p style="font-size: 0.9rem; color: #7f8c8d;">
-          Baris <span x-text="currentBaris"></span> / 3
+          <span x-text="currentBaris + 1"></span> / 4
         </p>
 
         <p x-show="feedback" :class="feedback === 'success' ? 'feedback-success' : ''" x-text="feedbackText"></p>
@@ -52,7 +54,7 @@
       student: null,
       letterData: null,
       currentLevel: 1,
-      currentBaris: 1,
+      currentBaris: 0,
       feedback: null,
       feedbackText: '',
       progress: [],
@@ -65,7 +67,8 @@
         this.currentLevel = pos.level
         if (this.currentLevel > 28) { this.letterData = null; return }
         // Find next incomplete baris for mission 1 at this level
-        this.currentBaris = getNextBaris(this.progress, 1, this.currentLevel) || 1
+        const next = getNextBaris(this.progress, 1, this.currentLevel)
+        this.currentBaris = next !== null ? next : 0
         this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
       },
 
@@ -87,7 +90,7 @@
           this.feedback = null
           this.feedbackText = ''
         } else {
-          // All 3 baris done — letter complete for mission 1
+          // All 4 sub-steps done — letter complete for mission 1
           window.location.href = `/index.html?done=1&level=${this.currentLevel}`
         }
       }

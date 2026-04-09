@@ -30,10 +30,13 @@ export const HIJAIYAH = [
 ]
 
 export const BARIS = [
+  { index: 0, name: 'Huruf', diacritic: '', sound: '' },
   { index: 1, name: 'Fathah', diacritic: '\u064E', sound: 'a' },
   { index: 2, name: 'Kasrah', diacritic: '\u0650', sound: 'i' },
   { index: 3, name: 'Dammah', diacritic: '\u064F', sound: 'u' },
 ]
+
+export const BARIS_COUNT = 4 // 0=bare, 1=fathah, 2=kasrah, 3=dammah
 
 export function getLetterByIndex(index) {
   return HIJAIYAH.find(h => h.index === index) || null
@@ -49,12 +52,14 @@ export function getLetterWithBaris(levelIndex, barisIndex) {
   const baris = getBarisByIndex(barisIndex)
   if (!letter || !baris) return null
 
-  const pronunciationMap = { 1: 'fathah', 2: 'kasrah', 3: 'dammah' }
-  const pronunciation = letter[pronunciationMap[barisIndex]]
+  const pronunciationMap = { 0: null, 1: 'fathah', 2: 'kasrah', 3: 'dammah' }
+  const pronunciation = barisIndex === 0 ? letter.name : letter[pronunciationMap[barisIndex]]
+  const isBare = barisIndex === 0
 
   return {
     ...letter,
     baris,
+    isBare,
     display: letter.letter + baris.diacritic,
     pronunciation,
     barisName: baris.name,
