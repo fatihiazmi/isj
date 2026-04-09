@@ -49,7 +49,14 @@ export function startListening(lang = 'ar-SA', timeoutMs = 6000) {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      reject(new Error(event.error))
+      // Only reject on permission errors — everything else resolves empty
+      // so teacher fallback buttons appear instead of error message
+      if (event.error === 'not-allowed') {
+        reject(new Error(event.error))
+      } else {
+        // no-speech, audio-capture, language-not-supported, aborted, etc.
+        resolve([])
+      }
     }
 
     recognition.onnomatch = () => {

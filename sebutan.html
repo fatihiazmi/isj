@@ -152,8 +152,8 @@
             await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'incorrect')
           }
         } catch (err) {
-          this.feedback = 'incorrect'
-          this.feedbackText = 'Mikrofon tidak berfungsi. Minta guru semak.'
+          // Permission denied — show mic denied state
+          this.micDenied = true
         }
         this.listening = false
       },
