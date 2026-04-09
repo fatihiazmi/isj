@@ -13,20 +13,36 @@
   <div class="activity-box">
     <h1>Misi 2: Makhraj Master 🎤</h1>
 
-    <template x-if="!letter">
+    <template x-if="!letterData">
       <p class="subtitle">Sila selesaikan Misi 1 dahulu!</p>
     </template>
 
-    <template x-if="letter">
+    <template x-if="letterData">
       <div>
         <p class="subtitle">Sebut huruf di bawah:</p>
-        <div class="huruf-display" x-text="letter.letter"></div>
+        <div class="huruf-display" x-text="letterData.display"></div>
+        <p style="font-size: 1.2rem; color: #7f8c8d;">
+          <span x-text="letterData.barisName"></span> — sebut: "<span x-text="letterData.pronunciation"></span>"
+        </p>
+        <p style="font-size: 0.9rem; color: #7f8c8d;">
+          Baris <span x-text="currentBaris"></span> / 3
+        </p>
 
-        <div x-show="!listening && !feedback">
-          <button class="btn-primary" @click="listen()">🎤 Tekan & Sebut</button>
+        <!-- Mic permission denied message -->
+        <div x-show="micDenied" style="margin: 15px 0;">
+          <p style="color: #e74c3c; font-weight: bold;">Mikrofon tidak dibenarkan.</p>
+          <p style="color: #7f8c8d; font-size: 0.85rem;">Sila benarkan akses mikrofon di tetapan pelayar, atau gunakan butang guru di bawah.</p>
         </div>
 
-        <p x-show="listening" class="subtitle">Mendengar... Sebut huruf ini!</p>
+        <div x-show="!listening && !feedback && !micDenied">
+          <button class="btn-primary" @click="listen()" style="font-size: 1.3rem; padding: 18px 40px;">
+            🎤 Tekan & Sebut
+          </button>
+        </div>
+
+        <div x-show="listening" style="margin: 20px 0;">
+          <p class="subtitle">🔴 Mendengar... Sebut sekarang!</p>
+        </div>
 
         <div x-show="feedback">
           <p :class="feedback === 'correct' ? 'feedback-success' : 'feedback-error'" x-text="feedbackText"></p>
@@ -41,6 +57,13 @@
             Seterusnya ➡️
           </button>
         </div>
+
+        <!-- Always-visible teacher override for when mic fails -->
+        <div x-show="!feedback && (micDenied || micUnsupported)" style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #bdc3c7;">
+          <p style="color: #7f8c8d; font-size: 0.9rem;">Penilaian Guru:</p>
+          <button class="btn-secondary" @click="teacherMark('correct')" style="margin: 5px;">✅ Betul</button>
+          <button class="btn-danger" @click="teacherMark('incorrect')" style="margin: 5px;">❌ Cuba Lagi</button>
+        </div>
       </div>
     </template>
   </div>
@@ -48,42 +71,66 @@
   <script type="module">
     import Alpine from 'alpinejs'
     import { getActiveStudent } from '/js/student.js'
-    import { markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable } from '/js/progress.js'
-    import { getLetterByIndex } from '/js/hijaiyah.js'
-    import { startListening, checkPronunciation } from '/js/speech.js'
+    import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable, getNextBaris } from '/js/progress.js'
+    import { getLetterWithBaris } from '/js/hijaiyah.js'
+    import { startListening, checkPronunciation, requestMicPermission } from '/js/speech.js'
 
     Alpine.data('sebutan', () => ({
       student: null,
-      letter: null,
+      letterData: null,
       currentLevel: 1,
+      currentBaris: 1,
       listening: false,
       feedback: null,
       feedbackText: '',
+      micDenied: false,
+      micUnsupported: false,
+      progress: [],
 
       async init() {
         this.student = getActiveStudent()
         if (!this.student) { window.location.href = '/index.html'; return }
-        this.currentLevel = await getCurrentLevel(this.student.id)
+
+        // Check Speech API support
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        if (!SpeechRecognition) {
+          this.micUnsupported = true
+        }
+
+        this.progress = await getStudentProgress(this.student.id)
+        const pos = await getCurrentLevel(this.student.id)
+        this.currentLevel = pos.level
+        if (this.currentLevel > 28) { this.letterData = null; return }
+
         const available = await isMissionAvailable(this.student.id, 2, this.currentLevel)
-        if (!available) { this.letter = null; return }
-        this.letter = getLetterByIndex(this.currentLevel)
+        if (!available) { this.letterData = null; return }
+
+        this.currentBaris = getNextBaris(this.progress, 2, this.currentLevel) || 1
+        this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
       },
 
       async listen() {
+        // Request mic permission first
+        const hasPermission = await requestMicPermission()
+        if (!hasPermission) {
+          this.micDenied = true
+          return
+        }
+
         this.listening = true
         this.feedback = null
         try {
           const results = await startListening('ar-SA')
-          const correct = checkPronunciation(results, this.letter)
+          const correct = checkPronunciation(results, this.letterData)
           if (correct) {
             this.feedback = 'correct'
             this.feedbackText = 'HEBAT! Betul! 🎉'
-            await markLevelComplete(this.student.id, 2, this.currentLevel)
-            await logAttempt(this.student.id, 2, this.currentLevel, 'speech', 'correct')
+            await markLevelComplete(this.student.id, 2, this.currentLevel, this.currentBaris)
+            await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'correct')
           } else {
             this.feedback = 'incorrect'
             this.feedbackText = 'Cuba lagi... Atau minta guru semak.'
-            await logAttempt(this.student.id, 2, this.currentLevel, 'speech', 'incorrect')
+            await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'speech', 'incorrect')
           }
         } catch (err) {
           this.feedback = 'incorrect'
@@ -93,9 +140,9 @@
       },
 
       async teacherMark(result) {
-        await logAttempt(this.student.id, 2, this.currentLevel, 'manual', result)
+        await logAttempt(this.student.id, 2, this.currentLevel, this.currentBaris, 'manual', result)
         if (result === 'correct') {
-          await markLevelComplete(this.student.id, 2, this.currentLevel)
+          await markLevelComplete(this.student.id, 2, this.currentLevel, this.currentBaris)
           this.feedback = 'correct'
           this.feedbackText = 'Guru sahkan: Betul! 🎉'
         } else {
@@ -104,7 +151,17 @@
       },
 
       async next() {
-        window.location.href = `/index.html?done=2&level=${this.currentLevel}`
+        // Refresh progress and check for more baris
+        this.progress = await getStudentProgress(this.student.id)
+        const nextBaris = getNextBaris(this.progress, 2, this.currentLevel)
+        if (nextBaris) {
+          this.currentBaris = nextBaris
+          this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
+          this.feedback = null
+          this.feedbackText = ''
+        } else {
+          window.location.href = `/index.html?done=2&level=${this.currentLevel}`
+        }
       }
     }))
 

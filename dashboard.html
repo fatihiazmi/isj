@@ -55,7 +55,7 @@
   <script type="module">
     import Alpine from 'alpinejs'
     import { supabase } from '/js/supabase.js'
-    import { getLetterByIndex } from '/js/hijaiyah.js'
+    import { getLetterByIndex, getLetterWithBaris } from '/js/hijaiyah.js'
 
     Alpine.data('dashboard', () => ({
       students: [],
@@ -80,27 +80,39 @@
           const completedLevels = new Set()
 
           for (let level = 1; level <= 28; level++) {
-            const m1 = sp.find(p => p.mission === 1 && p.level === level)
-            const m2 = sp.find(p => p.mission === 2 && p.level === level)
-            const m3 = sp.find(p => p.mission === 3 && p.level === level)
-            if (m1 && m2 && m3) completedLevels.add(level)
+            let allDone = true
+            for (let mission = 1; mission <= 3; mission++) {
+              for (let baris = 1; baris <= 3; baris++) {
+                const found = sp.find(p => p.mission === mission && p.level === level && p.baris === baris)
+                if (!found) { allDone = false; break }
+              }
+              if (!allDone) break
+            }
+            if (allDone) completedLevels.add(level)
           }
 
           const totalCompleted = completedLevels.size
           const progressPercent = Math.round((totalCompleted / 28) * 100)
 
-          let currentLevel = 29
+          // Find current level + baris
+          let currentLevel = 29, currentBaris = 1
+          outer:
           for (let level = 1; level <= 28; level++) {
-            if (!completedLevels.has(level)) { currentLevel = level; break }
+            for (let baris = 1; baris <= 3; baris++) {
+              for (let mission = 1; mission <= 3; mission++) {
+                const found = sp.find(p => p.mission === mission && p.level === level && p.baris === baris)
+                if (!found) { currentLevel = level; currentBaris = baris; break outer }
+              }
+            }
           }
 
-          const currentLetter = getLetterByIndex(currentLevel)
-          const currentLetterName = currentLetter ? `${currentLetter.letter} (${currentLetter.name})` : 'Semua selesai'
+          const currentData = getLetterWithBaris(currentLevel, currentBaris)
+          const currentLetterName = currentData ? `${currentData.display} (${currentData.name} - ${currentData.barisName})` : 'Semua selesai'
 
           let status, badgeClass
           if (totalCompleted === 28) {
             status = 'Lulus'; badgeClass = 'lulus'
-          } else if (totalCompleted === 0) {
+          } else if (totalCompleted === 0 && sp.length === 0) {
             status = 'Belum Mula'; badgeClass = 'lemah'
           } else {
             status = 'Sedang Belajar'; badgeClass = 'sedang-belajar'

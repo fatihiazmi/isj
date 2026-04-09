@@ -118,8 +118,8 @@
   <script type="module">
     import Alpine from 'alpinejs'
     import { fetchAllStudents, getActiveStudent, setActiveStudent, clearActiveStudent } from '/js/student.js'
-    import { getStudentProgress, getCurrentLevel, calculateEnergy, resetStudentProgress, getCompletedMissionForLevel } from '/js/progress.js'
-    import { getLetterByIndex } from '/js/hijaiyah.js'
+    import { getStudentProgress, getCurrentLevel, calculateEnergy, resetStudentProgress, getCompletedMissionForLevel, countMissionCompleted } from '/js/progress.js'
+    import { getLetterByIndex, getLetterWithBaris } from '/js/hijaiyah.js'
 
     Alpine.data('missionMap', () => ({
       students: [],
@@ -130,9 +130,11 @@
       celebration: null,
       resetModal: null,
 
+      currentBaris: 1,
+
       get currentLetterName() {
-        const letter = getLetterByIndex(this.currentLevel)
-        return letter ? `${letter.letter} (${letter.name})` : 'Semua selesai!'
+        const data = getLetterWithBaris(this.currentLevel, this.currentBaris)
+        return data ? `${data.display} (${data.name} - ${data.barisName})` : 'Semua selesai!'
       },
 
       async init() {
@@ -152,13 +154,15 @@
 
       async loadProgress() {
         this.progress = await getStudentProgress(this.activeStudent.id)
-        this.currentLevel = await getCurrentLevel(this.activeStudent.id)
+        const pos = await getCurrentLevel(this.activeStudent.id)
+        this.currentLevel = pos.level
+        this.currentBaris = pos.baris
         this.energy = calculateEnergy(this.progress)
       },
 
       missionProgress(mission) {
-        const completed = this.progress.filter(p => p.mission === mission).length
-        return Math.round((completed / 28) * 100)
+        const completed = countMissionCompleted(this.progress, mission)
+        return Math.round((completed / 84) * 100) // 28 letters × 3 baris
       },
 
       async checkCelebration() {
@@ -171,7 +175,7 @@
         window.history.replaceState({}, '', '/index.html')
 
         const letter = getLetterByIndex(fromLevel)
-        const nextLetter = getLetterByIndex(fromLevel + 1)
+        const nextData = getLetterWithBaris(fromLevel + 1, 1)
         const completedMission = await getCompletedMissionForLevel(this.activeStudent.id, fromLevel)
 
         if (completedMission === 'all') {
@@ -179,8 +183,8 @@
           this.celebration = {
             emoji: '🏆',
             title: 'Tahniah!',
-            text: `Anda berjaya mempelajari huruf <strong>${letter.letter} (${letter.name})</strong>!<br>Seterusnya huruf <strong>${nextLetter ? nextLetter.letter + ' (' + nextLetter.name + ')' : 'Semua selesai!'}</strong>`,
-            btnText: nextLetter ? `Jom belajar ${nextLetter.name}! ➡️` : 'Semua selesai! 🎉',
+            text: `Anda berjaya mempelajari huruf <strong>${letter.letter} (${letter.name})</strong> dengan semua baris!<br>Seterusnya huruf <strong>${nextData ? nextData.display + ' (' + nextData.name + ')' : 'Semua selesai!'}</strong>`,
+            btnText: nextData ? `Jom belajar ${nextData.name}! ➡️` : 'Semua selesai! 🎉',
             btnClass: 'letter-complete',
             action: () => { this.celebration = null }
           }
