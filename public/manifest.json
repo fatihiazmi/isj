@@ -1,0 +1,13 @@
+{
+  "name": "Iqra' Smart Journey",
+  "short_name": "ISJ",
+  "description": "Belajar huruf hijaiyah dengan cara interaktif",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e0f7fa",
+  "theme_color": "#e67e22",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
