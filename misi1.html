@@ -32,6 +32,11 @@
           <span x-text="currentBaris + 1"></span> / 4
         </p>
 
+        <button class="btn-listen" @click="listenLetter()" :disabled="playing">
+          <span x-show="!playing">🔊 Dengar Sebutan</span>
+          <span x-show="playing">🔊 Sedang bermain...</span>
+        </button>
+
         <p x-show="feedback" :class="feedback === 'success' ? 'feedback-success' : ''" x-text="feedbackText"></p>
 
         <button class="btn-primary" @click="complete()" x-show="!feedback">
@@ -49,6 +54,7 @@
     import { getActiveStudent } from '/js/student.js'
     import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, getNextBaris } from '/js/progress.js'
     import { getLetterWithBaris } from '/js/hijaiyah.js'
+    import { speakLetter } from '/js/audio.js'
 
     Alpine.data('explorer', () => ({
       student: null,
@@ -57,6 +63,7 @@
       currentBaris: 0,
       feedback: null,
       feedbackText: '',
+      playing: false,
       progress: [],
 
       async init() {
@@ -70,6 +77,12 @@
         const next = getNextBaris(this.progress, 1, this.currentLevel)
         this.currentBaris = next !== null ? next : 0
         this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
+      },
+
+      async listenLetter() {
+        this.playing = true
+        await speakLetter(this.letterData)
+        this.playing = false
       },
 
       async complete() {

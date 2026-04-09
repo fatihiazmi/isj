@@ -30,6 +30,11 @@
           <span x-text="currentBaris + 1"></span> / 4
         </p>
 
+        <button class="btn-listen" @click="listenLetter()" :disabled="playing">
+          <span x-show="!playing">🔊 Dengar Sebutan</span>
+          <span x-show="playing">🔊 Sedang bermain...</span>
+        </button>
+
         <div id="canvasWrapper" style="position: relative; display: inline-block;">
           <canvas id="guideCanvas"
                   style="position: absolute; top: 0; left: 0; z-index: 0; border-radius: 15px;"></canvas>
@@ -55,6 +60,7 @@
     import { getActiveStudent } from '/js/student.js'
     import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable, getNextBaris } from '/js/progress.js'
     import { getLetterWithBaris } from '/js/hijaiyah.js'
+    import { speakLetter } from '/js/audio.js'
 
     Alpine.data('tracing', () => ({
       student: null,
@@ -66,6 +72,7 @@
       canvas: null,
       ctx: null,
       drawing: false,
+      playing: false,
       progress: [],
 
       async init() {
@@ -148,6 +155,12 @@
 
       stopDraw() {
         this.drawing = false
+      },
+
+      async listenLetter() {
+        this.playing = true
+        await speakLetter(this.letterData)
+        this.playing = false
       },
 
       clearCanvas() {

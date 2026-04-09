@@ -33,6 +33,11 @@
           <span x-text="currentBaris + 1"></span> / 4
         </p>
 
+        <button class="btn-listen" @click="listenLetter()" :disabled="playing">
+          <span x-show="!playing">🔊 Dengar Sebutan</span>
+          <span x-show="playing">🔊 Sedang bermain...</span>
+        </button>
+
         <!-- Mic permission denied message -->
         <div x-show="micDenied" style="margin: 15px 0;">
           <p style="color: #e74c3c; font-weight: bold;">Mikrofon tidak dibenarkan.</p>
@@ -79,6 +84,7 @@
     import { getStudentProgress, markLevelComplete, logAttempt, getCurrentLevel, isMissionAvailable, getNextBaris } from '/js/progress.js'
     import { getLetterWithBaris } from '/js/hijaiyah.js'
     import { startListening, checkPronunciation, requestMicPermission } from '/js/speech.js'
+    import { speakLetter } from '/js/audio.js'
 
     Alpine.data('sebutan', () => ({
       student: null,
@@ -90,6 +96,7 @@
       feedbackText: '',
       micDenied: false,
       micUnsupported: false,
+      playing: false,
       progress: [],
 
       async init() {
@@ -113,6 +120,12 @@
         const next = getNextBaris(this.progress, 2, this.currentLevel)
         this.currentBaris = next !== null ? next : 0
         this.letterData = getLetterWithBaris(this.currentLevel, this.currentBaris)
+      },
+
+      async listenLetter() {
+        this.playing = true
+        await speakLetter(this.letterData)
+        this.playing = false
       },
 
       async listen() {
