@@ -10,6 +10,7 @@ export default defineConfig({
         sebutan: resolve(__dirname, 'sebutan.html'),
         tracing: resolve(__dirname, 'tracing.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
+        printables: resolve(__dirname, 'printables.html'),
       },
     },
   },
