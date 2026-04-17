@@ -9,33 +9,185 @@
   <meta name="theme-color" content="#e67e22" />
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body" x-data="printablesPage" x-init="init()">
 
   <div class="container">
     <a href="/dashboard.html" class="btn-back">← Dashboard</a>
     <h1 style="color: #2c3e50; border-bottom: 2px solid #8e44ad; padding-bottom: 10px;">
       Lembaran Kerja
     </h1>
-    <p style="color: #7f8c8d; margin-bottom: 30px;">Pratonton dan muat turun lembaran kerja untuk murid.</p>
 
-    <div class="printable-grid">
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <h3 style="margin: 0 0 12px; color: #2c3e50;">Muat Naik Lembaran Kerja</h3>
+      <div class="upload-form">
+        <input type="text" x-model="title" placeholder="Nama lembaran kerja" class="upload-input" />
+        <label class="upload-file-label">
+          <span x-text="fileName || 'Pilih fail PDF'"></span>
+          <input type="file" accept=".pdf" @change="onFileSelect($event)" style="display: none;" />
+        </label>
+        <button class="btn-download" @click="upload()" :disabled="uploading || !file || !title.trim()">
+          <span x-show="!uploading">Muat Naik</span>
+          <span x-show="uploading">Memuat naik...</span>
+        </button>
+      </div>
+      <p x-show="uploadError" class="feedback-error" style="margin-top: 10px; font-size: 0.9rem;" x-text="uploadError"></p>
+      <p x-show="uploadSuccess" class="feedback-success" style="margin-top: 10px; font-size: 0.9rem;" x-text="uploadSuccess"></p>
+    </div>
 
-      <div class="printable-card">
-        <div class="printable-preview">
-          <iframe src="/printables/asas-menulis-alif-ba-ta.pdf" title="Asas Menulis Alif Ba Ta"></iframe>
+    <!-- Printables Grid -->
+    <p x-show="loading" style="color: #7f8c8d; text-align: center;">Memuatkan...</p>
+    <p x-show="!loading && printables.length === 0" style="color: #7f8c8d; text-align: center;">Tiada lembaran kerja lagi. Muat naik yang pertama!</p>
+
+    <div class="printable-grid" x-show="!loading && printables.length > 0">
+      <template x-for="p in printables" :key="p.name">
+        <div class="printable-card">
+          <div class="printable-preview">
+            <iframe :src="p.url" :title="p.displayName"></iframe>
+          </div>
+          <div class="printable-info">
+            <h3 class="printable-title" x-text="p.displayName"></h3>
+            <p class="printable-desc" x-text="formatSize(p.size) + ' · ' + formatDate(p.created_at)"></p>
+            <div class="printable-actions">
+              <a :href="p.url" target="_blank" class="btn-preview">Pratonton</a>
+              <a :href="p.url" :download="p.displayName + '.pdf'" class="btn-download">Muat Turun</a>
+              <button class="btn-delete-small" @click="confirmDelete(p)">Padam</button>
+            </div>
+          </div>
         </div>
-        <div class="printable-info">
-          <h3 class="printable-title">Asas Menulis Alif Ba Ta</h3>
-          <p class="printable-desc">Lembaran latihan menulis 28 huruf hijaiyah dengan garisan putus-putus. Termasuk carta bunyi huruf dengan baris.</p>
-          <div class="printable-actions">
-            <a href="/printables/asas-menulis-alif-ba-ta.pdf" target="_blank" class="btn-preview">Pratonton</a>
-            <a href="/printables/asas-menulis-alif-ba-ta.pdf" download class="btn-download">Muat Turun</a>
+      </template>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <template x-if="deleteTarget">
+      <div class="celebration-overlay" @click.self="deleteTarget = null">
+        <div class="celebration-box">
+          <div class="celebration-emoji">🗑️</div>
+          <div class="celebration-title">Padam Lembaran?</div>
+          <p class="celebration-text">
+            Adakah anda pasti mahu padam <strong x-text="deleteTarget.displayName"></strong>?
+          </p>
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn-danger" style="padding: 14px 28px; font-size: 1.1rem; border-radius: 50px;" @click="doDelete()">Ya, Padam</button>
+            <button class="btn-secondary" style="padding: 14px 28px; font-size: 1.1rem; border-radius: 50px;" @click="deleteTarget = null">Batal</button>
           </div>
         </div>
       </div>
-
-    </div>
+    </template>
   </div>
 
+  <script type="module">
+    import Alpine from 'alpinejs'
+    import { supabase } from '/js/supabase.js'
+
+    const BUCKET = 'printables'
+
+    Alpine.data('printablesPage', () => ({
+      printables: [],
+      loading: true,
+      title: '',
+      file: null,
+      fileName: '',
+      uploading: false,
+      uploadError: '',
+      uploadSuccess: '',
+      deleteTarget: null,
+
+      async init() {
+        await this.loadPrintables()
+      },
+
+      async loadPrintables() {
+        this.loading = true
+        const { data, error } = await supabase.storage.from(BUCKET).list('', {
+          sortBy: { column: 'created_at', order: 'desc' },
+        })
+        if (error) { console.error(error); this.loading = false; return }
+
+        this.printables = (data || [])
+          .filter(f => f.name.endsWith('.pdf'))
+          .map(f => {
+            const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(f.name)
+            return {
+              ...f,
+              displayName: f.name.replace(/\.pdf$/, '').replace(/-/g, ' '),
+              url: urlData.publicUrl,
+              size: f.metadata?.size || 0,
+            }
+          })
+        this.loading = false
+      },
+
+      onFileSelect(event) {
+        const f = event.target.files[0]
+        if (!f) return
+        if (f.type !== 'application/pdf') {
+          this.uploadError = 'Hanya fail PDF dibenarkan.'
+          this.file = null
+          this.fileName = ''
+          return
+        }
+        this.file = f
+        this.fileName = f.name
+        this.uploadError = ''
+      },
+
+      async upload() {
+        if (!this.file || !this.title.trim()) return
+        this.uploading = true
+        this.uploadError = ''
+        this.uploadSuccess = ''
+
+        const slug = this.title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '')
+        const fileName = `${slug}.pdf`
+
+        const { error } = await supabase.storage.from(BUCKET).upload(fileName, this.file, {
+          contentType: 'application/pdf',
+          upsert: true,
+        })
+
+        if (error) {
+          this.uploadError = 'Gagal muat naik: ' + error.message
+        } else {
+          this.uploadSuccess = `"${this.title.trim()}" berjaya dimuat naik!`
+          this.title = ''
+          this.file = null
+          this.fileName = ''
+          await this.loadPrintables()
+        }
+        this.uploading = false
+      },
+
+      confirmDelete(p) {
+        this.deleteTarget = p
+      },
+
+      async doDelete() {
+        if (!this.deleteTarget) return
+        const { error } = await supabase.storage.from(BUCKET).remove([this.deleteTarget.name])
+        if (error) {
+          this.uploadError = 'Gagal padam: ' + error.message
+        } else {
+          this.uploadSuccess = `"${this.deleteTarget.displayName}" telah dipadam.`
+          await this.loadPrintables()
+        }
+        this.deleteTarget = null
+      },
+
+      formatSize(bytes) {
+        if (!bytes) return ''
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+        return (bytes / 1048576).toFixed(1) + ' MB'
+      },
+
+      formatDate(dateStr) {
+        if (!dateStr) return ''
+        return new Date(dateStr).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+      },
+    }))
+
+    Alpine.start()
+  </script>
 </body>
 </html>
